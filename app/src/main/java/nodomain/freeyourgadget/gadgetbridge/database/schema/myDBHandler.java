@@ -25,16 +25,16 @@ public class myDBHandler extends SQLiteOpenHelper {
     public myDBHandler(@Nullable Context context, @Nullable String name, @Nullable SQLiteDatabase.CursorFactory factory, int version) {
         super(context, name, factory, version);
     }
-public Cursor getAllData() {
+    public Cursor getAllData() {
         SQLiteDatabase db = SQLiteDatabase.openDatabase("/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge",null,SQLiteDatabase.OPEN_READONLY);
         Cursor cursor = db.rawQuery("SELECT * FROM MI_BAND_ACTIVITY_SAMPLE", null);
         return  cursor;
 }
 
-public Cursor getSumSteps(){
-    SQLiteDatabase db = SQLiteDatabase.openDatabase("/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge", null, SQLiteDatabase.OPEN_READONLY);
-    Cursor cursor = db.rawQuery("SELECT SUM(steps) FROM MI_BAND_ACTIVITY_SAMPLE", null);
-    return cursor;
+    public Cursor getSumSteps(){
+        SQLiteDatabase db = SQLiteDatabase.openDatabase("/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge", null, SQLiteDatabase.OPEN_READONLY);
+        Cursor cursor = db.rawQuery("SELECT SUM(steps) FROM MI_BAND_ACTIVITY_SAMPLE", null);
+        return cursor;
     }
 
     public Cursor getSteps(String lastTimestamp) {
@@ -42,6 +42,24 @@ public Cursor getSumSteps(){
         Cursor cursor = db.rawQuery("SELECT datetime(timestamp, 'unixepoch'), steps FROM 'MI_BAND_ACTIVITY_SAMPLE' where steps is not 0 and timestamp > strftime('%s','" + lastTimestamp + "');", null);
         return cursor;
     }
+
+    public Cursor getStepsAndHeartRate(String lastTimestamp) {
+        SQLiteDatabase db = SQLiteDatabase.openDatabase("/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge", null, SQLiteDatabase.OPEN_READONLY);
+        Cursor cursor = db.rawQuery("SELECT datetime(timestamp, 'unixepoch'), steps, heart_rate FROM 'MI_BAND_ACTIVITY_SAMPLE' where (steps is not 0 OR (heart_rate is not 255 AND heart_rate is not 0)) and timestamp > strftime('%s','" + lastTimestamp + "');", null);
+        return cursor;
+    }
+
+    public String getDeviceId() {
+        SQLiteDatabase db = SQLiteDatabase.openDatabase("/storage/emulated/0/Android/data/nodomain.freeyourgadget.gadgetbridge/files/Gadgetbridge", null, SQLiteDatabase.OPEN_READONLY);
+        Cursor cursor = db.rawQuery("select identifier from DEVICE;", null);
+
+        if (cursor.moveToFirst()) {
+            return cursor.getString(0);
+        } else{
+            return null;
+        }
+    }
+
     @Override
     public void onCreate(SQLiteDatabase db) {}
     @Override

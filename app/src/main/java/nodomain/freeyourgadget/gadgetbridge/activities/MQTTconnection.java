@@ -50,7 +50,8 @@ public class MQTTconnection {
     private int iteration = 0;
     private String lastTimestamp = "0";
     public Timer timer = new Timer();
-    private final List<BluetoothDevice> connectedDevice;
+    //private final List<BluetoothDevice> connectedDevice;
+    private String connectedDevice;
     private final String userMail;
     private final String userSms;
     private MqttAndroidClient mqttAndroidClient;
@@ -65,8 +66,10 @@ public class MQTTconnection {
         userMail = mail;
         userSms = sms;
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
-        BluetoothManager manager = (BluetoothManager) context.getSystemService(BLUETOOTH_SERVICE);
-        connectedDevice = manager.getConnectedDevices(GATT);
+        //BluetoothManager manager = (BluetoothManager) context.getSystemService(BLUETOOTH_SERVICE);
+        //connectedDevice = manager.getConnectedDevices(GATT);
+        myDBHandler db = new myDBHandler(context, null,null,1);
+        connectedDevice = db.getDeviceId();
 
         mqttAndroidClient = new MqttAndroidClient(context, serverUri, clientId);
         mqttAndroidClient.setCallback(new MqttCallback() {
@@ -149,22 +152,24 @@ public class MQTTconnection {
         exportDB(context);
         lastTimestamp = sharedPrefs.getString("lastTimestamp", "0");//"2019-12-30 13:00:00";
         myDBHandler db = new myDBHandler(context, null,null,1);
-        Cursor cursorSteps = db.getSteps(lastTimestamp);
+        //Cursor cursorSteps = db.getSteps(lastTimestamp);
+        Cursor cursor = db.getStepsAndHeartRate(lastTimestamp);
         String topic = "gbBKogut/MiBand/" + connectedDevice.toString() + "/steps";
         String message = null;
 
-        if (cursorSteps.getCount() == 0){
+        if (cursor.getCount() == 0){
         }
         else{
 
-            while (cursorSteps.moveToNext()){
-                Log.d(null,cursorSteps.getString(0) + " " + cursorSteps.getString(1));
+            while (cursor.moveToNext()){
+                Log.d(null,cursor.getString(0) + " " + cursor.getString(1));
 
                 try {
                     message = new JSONObject()
                             .put("deviceId", connectedDevice.toString())
-                            .put("steps", cursorSteps.getString(1))
-                            .put("timestamp", cursorSteps.getString(0)).toString();
+                            .put("steps", cursor.getString(1))
+                            .put("heart_rate", cursor.getString(2))
+                            .put("timestamp", cursor.getString(0)).toString();
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -172,7 +177,7 @@ public class MQTTconnection {
                 System.out.println("Published" );
 
                 SharedPreferences.Editor mEditor = sharedPrefs.edit();
-                mEditor.putString("lastTimestamp", cursorSteps.getString(0)).commit();
+                mEditor.putString("lastTimestamp", cursor.getString(0)).commit();
             }
             Toast.makeText(context, "Published", Toast.LENGTH_SHORT).show();
 
