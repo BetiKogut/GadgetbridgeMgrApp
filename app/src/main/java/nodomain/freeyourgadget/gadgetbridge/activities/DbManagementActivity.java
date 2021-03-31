@@ -17,14 +17,21 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package nodomain.freeyourgadget.gadgetbridge.activities;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.media.browse.MediaBrowser;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -37,7 +44,14 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NavUtils;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -51,6 +65,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.MqttSecurityException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.File;
 
 import java.io.IOException;
@@ -69,9 +84,10 @@ import nodomain.freeyourgadget.gadgetbridge.util.GB;
 import nodomain.freeyourgadget.gadgetbridge.util.ImportExportSharedPreferences;
 
 import static android.bluetooth.BluetoothProfile.GATT;
+import static nodomain.freeyourgadget.gadgetbridge.GBApplication.getContext;
 
 
-public class DbManagementActivity extends AbstractGBActivity {
+public class DbManagementActivity extends AbstractGBActivity implements LocationListener {
     public static final Logger LOG = LoggerFactory.getLogger(DbManagementActivity.class);
     public static SharedPreferences sharedPrefs;
     public static String exportPath = "";
@@ -82,20 +98,42 @@ public class DbManagementActivity extends AbstractGBActivity {
     public int iteration = 0;
     public Timer timer = new Timer();
     MQTTconnection mqttConnection;
+    private static final int REQUEST_PERMISSION_LOCATION = 255;
+
+
+    ///
+    protected LocationManager locationManager;
+    protected LocationListener locationListener;
+    protected Context context;
+    String lat;
+    String provider;
+    protected String latitude, longitude;
+    protected boolean gps_enabled, network_enabled;
+    ///
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_db_management);
 
+        ///
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+        ///
+
         TextView dbPath = findViewById(R.id.activity_db_management_path);
         dbPath.setText(getExternalPath());
 
         Button exportDBButton = findViewById(R.id.exportDBButton);
         exportDBButton.setOnClickListener(new View.OnClickListener() {
+            @RequiresApi(api = Build.VERSION_CODES.M)
             @Override
             public void onClick(View v) {
                 exportDB();
+                //getGpsLocation();
             }
         });
         Button importDBButton = findViewById(R.id.importDBButton);
@@ -109,8 +147,9 @@ public class DbManagementActivity extends AbstractGBActivity {
         MQTTDBButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                    //connectMQTT();
+                //connectMQTT();
                 startMqtt("steps");
+
 
 
             }
@@ -126,7 +165,7 @@ public class DbManagementActivity extends AbstractGBActivity {
                 if (isChecked) {
                     mail = editMail.getText().toString();
                 } else {
-                       mail = null;
+                    mail = null;
                 }
             }
         });
@@ -148,7 +187,7 @@ public class DbManagementActivity extends AbstractGBActivity {
                 editSms.setText("");
                 editMail.setText("");
 
-               startMqtt("mailSms");
+                startMqtt("mailSms");
 
             }
         });
@@ -175,6 +214,34 @@ public class DbManagementActivity extends AbstractGBActivity {
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 
     }
+
+    ///
+    @Override
+    public void onLocationChanged(Location location) {
+        //txtLat = (TextView) findViewById(R.id.textview1);
+        final EditText editMail = findViewById(R.id.enterMail);
+        latitude = String.valueOf(location.getLatitude());
+        longitude = String.valueOf(location.getLongitude());
+        editMail.setText(latitude + "_" + longitude);
+
+        Log.d("!!!!!!!!!!","Latitude:" + location.getLatitude() + ", Longitude:" + location.getLongitude());
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+        Log.d("Latitude","status");
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+        Log.d("Latitude","disable");
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+        Log.d("Latitude","enable");
+    }
+    ///
 
     public boolean hasOldActivityDatabase() {
         return new DBHelper(this).existsDB("ActivityDatabase");
@@ -210,7 +277,6 @@ public class DbManagementActivity extends AbstractGBActivity {
             GB.toast(DbManagementActivity.this, getString(R.string.dbmanagementactivity_error_importing_db, ex.getMessage()), Toast.LENGTH_LONG, GB.ERROR, ex);
         }
     }
-
 
 
     public void exportDB() {
@@ -310,7 +376,7 @@ public class DbManagementActivity extends AbstractGBActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void startMqtt(String action){
+    private void startMqtt(String action) {
         mqttConnection = new MQTTconnection(getApplicationContext(), action, mail, sms);
         mqttConnection.setCallback(new MqttCallback() {
             @Override
@@ -319,8 +385,9 @@ public class DbManagementActivity extends AbstractGBActivity {
 
             @Override
             public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                Log.w("Debug",mqttMessage.toString());
+                Log.w("Debug", mqttMessage.toString());
             }
+
             @Override
             public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
 
