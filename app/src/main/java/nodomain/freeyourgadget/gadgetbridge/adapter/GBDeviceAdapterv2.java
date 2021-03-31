@@ -25,10 +25,12 @@ import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
 import android.text.InputType;
 import android.transition.TransitionManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -509,6 +511,8 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         TextView fmFrequencyLabel;
         ImageView ledColor;
 
+        Button greenButton;
+
         ViewHolder(View view) {
             super(view);
             container = view.findViewById(R.id.card_view);
@@ -541,6 +545,14 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             fmFrequencyBox = view.findViewById(R.id.device_fm_frequency_box);
             fmFrequencyLabel = view.findViewById(R.id.fm_frequency);
             ledColor = view.findViewById(R.id.device_led_color);
+
+            greenButton = view.findViewById(R.id.greenButton);
+            greenButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d("!!!!!!!!!!","green mood clicked");
+                }
+            });
         }
 
     }
