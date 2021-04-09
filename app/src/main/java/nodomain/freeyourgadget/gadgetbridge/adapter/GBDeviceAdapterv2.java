@@ -51,10 +51,16 @@ import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
 import nodomain.freeyourgadget.gadgetbridge.R;
 import nodomain.freeyourgadget.gadgetbridge.activities.ActivitySummariesActivity;
 import nodomain.freeyourgadget.gadgetbridge.activities.ConfigureAlarms;
+import nodomain.freeyourgadget.gadgetbridge.activities.MQTTconnection;
 import nodomain.freeyourgadget.gadgetbridge.activities.VibrationActivity;
 import nodomain.freeyourgadget.gadgetbridge.activities.charts.ChartsActivity;
 import nodomain.freeyourgadget.gadgetbridge.activities.devicesettings.DeviceSettingsActivity;
@@ -78,6 +84,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     private int expandedDevicePosition = RecyclerView.NO_POSITION;
     private ViewGroup parent;
 
+
     public GBDeviceAdapterv2(Context context, List<GBDevice> deviceList) {
         this.context = context;
         this.deviceList = deviceList;
@@ -88,7 +95,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     public GBDeviceAdapterv2.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         this.parent = parent;
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.device_itemv2, parent, false);
-        return new ViewHolder(view);
+        return new ViewHolder(view, context);
     }
 
     @Override
@@ -479,7 +486,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-
+        MQTTconnection mqttConnection;
         CardView container;
 
         ImageView deviceImageView;
@@ -512,8 +519,12 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         ImageView ledColor;
 
         Button greenButton;
+        Button lightGreenButton;
+        Button yellowButton;
+        Button orangeButton;
+        Button redButton;
 
-        ViewHolder(View view) {
+        ViewHolder(View view, final Context context) {
             super(view);
             container = view.findViewById(R.id.card_view);
 
@@ -550,7 +561,59 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             greenButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Log.d("!!!!!!!!!!","green mood clicked");
+                    startMqtt("green", context);
+                    Log.d("!!!!!!!!!!","green mood tapped");
+                }
+            });
+
+            lightGreenButton = view.findViewById(R.id.lightGreenButton);
+            lightGreenButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d("!!!!!!!!!!","light green mood tapped");
+                }
+            });
+
+            yellowButton = view.findViewById(R.id.yellowButton);
+            yellowButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d("!!!!!!!!!!","yellow mood tapped");
+                }
+            });
+
+            orangeButton = view.findViewById(R.id.orangeButton);
+            orangeButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d("!!!!!!!!!!","orange mood clicked");
+                }
+            });
+
+            redButton = view.findViewById(R.id.redButton);
+            redButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d("!!!!!!!!!!","red mood tapped");
+                }
+            });
+        }
+
+        private void startMqtt(String action, Context ctx) {
+            mqttConnection = new MQTTconnection(ctx, action, null, null);
+            mqttConnection.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable throwable) {
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+                    Log.w("Debug", mqttMessage.toString());
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+
                 }
             });
         }

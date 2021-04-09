@@ -28,6 +28,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.Timer;
@@ -121,6 +122,8 @@ public class MQTTconnection {
                         publishSteps(context);
                     else if (action == "mailSms")
                         publishMailSms();
+                    else if (action == "green")
+                        publishMood("green");
                 }
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
@@ -204,6 +207,23 @@ public class MQTTconnection {
             publish(topic + "/sms", messageSms);
 
     }
+
+    private void publishMood(String mood){
+        String topic = "gbBKogut/MiBand/" + connectedDevice.toString();
+        String messageMood = null;
+
+        try {
+            messageMood = new JSONObject()
+                    .put("deviceId", connectedDevice.toString())
+                    .put("timestamp", Calendar.getInstance().getTime())
+                    .put("mood", mood).toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (mood != null )
+            publish(topic + "/mood", messageMood);
+    }
+
     private void exportDB(Context context) {
         try (DBHandler dbHandler = GBApplication.acquireDB()) {
             exportShared();
