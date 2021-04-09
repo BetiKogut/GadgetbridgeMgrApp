@@ -370,11 +370,30 @@
         card_view:contentPadding="8dp">
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:gravity="center"
-            android:layout_centerInParent="true"
+            android:layout_marginBottom="20dp"
             android:layout_height="match_parent">
 
+            <TextView
+                android:id="@+id/moodText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textAppearance="@style/TextAppearance.AppCompat.Large"
+                android:text="Jak się dziś czujesz?" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:gravity="center"
+            android:layout_height="match_parent">
 
             <Button android:id="@+id/greenButton"
                 android:layout_width="0dp"
@@ -384,13 +403,13 @@
                 android:adjustViewBounds="true"
                 android:scaleType="fitXY"
                 android:drawableEnd="@drawable/green"
-                android:layout_marginRight="10dp"
+                android:layout_marginEnd="10dp"
                 android:layout_height="wrap_content"/>
 
             <Button android:id="@+id/lightGreenButton"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:layout_marginRight="10dp"
+                android:layout_marginEnd="10dp"
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
                 android:drawableEnd="@drawable/lightgreen"
@@ -402,7 +421,7 @@
                 android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
-                android:layout_marginRight="10dp"
+                android:layout_marginEnd="10dp"
                 android:drawableEnd="@drawable/yellow"
                 android:layout_toEndOf="@+id/lightGreenButton"
                 android:layout_height="wrap_content"/>
@@ -412,7 +431,7 @@
                 android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
-                android:layout_marginRight="10dp"
+                android:layout_marginEnd="10dp"
                 android:drawableEnd="@drawable/orange"
                 android:layout_toEndOf="@+id/yellowButton"
                 android:layout_height="wrap_content"/>
@@ -422,11 +441,12 @@
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
                 android:drawableEnd="@drawable/red"
-                android:layout_marginRight="10dp"
+                android:layout_marginEnd="10dp"
                 android:layout_toEndOf="@+id/orangeButton"
                 android:layout_height="wrap_content"
                 android:layout_width="0dp" />
 
+        </LinearLayout>
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>

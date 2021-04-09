@@ -517,6 +517,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         LinearLayout fmFrequencyBox;
         TextView fmFrequencyLabel;
         ImageView ledColor;
+        TextView moodLabel ;
 
         Button greenButton;
         Button lightGreenButton;
@@ -531,6 +532,8 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             deviceImageView = view.findViewById(R.id.device_image);
             deviceNameLabel = view.findViewById(R.id.device_name);
             deviceStatusLabel = view.findViewById(R.id.device_status);
+            deviceImageView = view.findViewById(R.id.device_image);
+            moodLabel = view.findViewById(R.id.moodText);
 
             //actions
             batteryStatusBox = view.findViewById(R.id.device_battery_status_box);
@@ -561,7 +564,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             greenButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    startMqtt("green", context);
+                    startMqtt("5", context);
                     Log.d("!!!!!!!!!!","green mood tapped");
                 }
             });
@@ -570,6 +573,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             lightGreenButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    startMqtt("4", context);
                     Log.d("!!!!!!!!!!","light green mood tapped");
                 }
             });
@@ -578,6 +582,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             yellowButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    startMqtt("3", context);
                     Log.d("!!!!!!!!!!","yellow mood tapped");
                 }
             });
@@ -586,6 +591,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             orangeButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    startMqtt("2", context);
                     Log.d("!!!!!!!!!!","orange mood clicked");
                 }
             });
@@ -594,6 +600,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             redButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    startMqtt("1", context);
                     Log.d("!!!!!!!!!!","red mood tapped");
                 }
             });
@@ -602,6 +609,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         private void startMqtt(String action, Context ctx) {
             mqttConnection = new MQTTconnection(ctx, action, null, null);
             mqttConnection.setCallback(new MqttCallback() {
+
                 @Override
                 public void connectionLost(Throwable throwable) {
                 }

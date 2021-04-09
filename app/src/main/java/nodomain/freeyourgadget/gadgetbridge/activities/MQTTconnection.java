@@ -122,8 +122,10 @@ public class MQTTconnection {
                         publishSteps(context);
                     else if (action == "mailSms")
                         publishMailSms();
-                    else if (action == "green")
-                        publishMood("green");
+                    else if (action.matches("\\d+"))
+                        publishMood(action);
+
+                    Toast.makeText(context, "Opublikowano", Toast.LENGTH_LONG).show();
                 }
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
@@ -131,6 +133,8 @@ public class MQTTconnection {
                     if (iteration < 10)
                         connect(context, action);
                     iteration ++;
+                    if (iteration == 10)
+                        Toast.makeText(context, "Niepowodzenie. Sprawdź połączenie z Internetem", Toast.LENGTH_LONG).show();
                 }
             });
         } catch (MqttException ex){
