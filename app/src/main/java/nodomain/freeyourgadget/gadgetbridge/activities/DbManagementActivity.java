@@ -224,7 +224,7 @@ public class DbManagementActivity extends AbstractGBActivity implements Location
         longitude = String.valueOf(location.getLongitude());
         editMail.setText(latitude + "_" + longitude);
 
-        Log.d("!!!!!!!!!!","Latitude:" + location.getLatitude() + ", Longitude:" + location.getLongitude());
+        //Log.d("!!!!!!!!!!","Latitude:" + location.getLatitude() + ", Longitude:" + location.getLongitude());
     }
 
     @Override

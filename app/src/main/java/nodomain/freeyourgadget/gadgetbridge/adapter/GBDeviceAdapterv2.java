@@ -19,10 +19,15 @@ package nodomain.freeyourgadget.gadgetbridge.adapter;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
 import android.text.InputType;
 import android.transition.TransitionManager;
 import android.util.Log;
@@ -44,8 +49,14 @@ import com.google.android.material.snackbar.Snackbar;
 import com.jaredrummler.android.colorpicker.ColorPickerDialog;
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -54,6 +65,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
@@ -83,7 +95,15 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     private List<GBDevice> deviceList;
     private int expandedDevicePosition = RecyclerView.NO_POSITION;
     private ViewGroup parent;
-
+    private GBDevice device = null;
+    private static Timer timer = new Timer(false);
+    private static MQTTconnection mqttConnection;
+    private boolean subscribed = false;
+    private List<String> neighborDevices = new ArrayList<>();
+    private List<String> myDevices = new ArrayList<>(Arrays.asList("C1:BE:2C:35:A6:45", "F1:96:86:DC:94:EA", "F0:F9:B3:A4:14:8A", "EC:86:E9:AF:93:B9", "C1:70:F6:3D:D9:36",    "ED:A9:27:9E:CF:70", "C8:0F:10:25:2C:B7"));
+    final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    private int scanTime = 10;
+    boolean scanning = false;
 
     public GBDeviceAdapterv2(Context context, List<GBDevice> deviceList) {
         this.context = context;
@@ -100,29 +120,33 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, final int position) {
-        final GBDevice device = deviceList.get(position);
+        //final GBDevice device = deviceList.get(position);
+        device = deviceList.get(position);
         final DeviceCoordinator coordinator = DeviceHelper.getInstance().getCoordinator(device);
 
         holder.container.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
-                if (device.isInitialized() || device.isConnected()) {
+               /* if (device.isInitialized() || device.isConnected()) {
                     showTransientSnackbar(R.string.controlcenter_snackbar_need_longpress);
                 } else {
                     showTransientSnackbar(R.string.controlcenter_snackbar_connecting);
                     GBApplication.deviceService().connect(device);
                 }
+                */
+                connect();
             }
         });
 
         holder.container.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                if (device.getState() != GBDevice.State.NOT_CONNECTED) {
-                    showTransientSnackbar(R.string.controlcenter_snackbar_disconnecting);
-                    GBApplication.deviceService().disconnect();
-                }
+                //if (device.getState() != GBDevice.State.NOT_CONNECTED) {
+                //    showTransientSnackbar(R.string.controlcenter_snackbar_disconnecting);
+                //    GBApplication.deviceService().disconnect();
+                //}
+                disconnect();
                 return true;
             }
         });
@@ -477,7 +501,10 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
                         .show();
             }
         });
-
+        try { listenForMqttScheduler(context);
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -686,6 +713,157 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         //textView.setTextColor();
         //snackbarView.setBackgroundColor(Color.MAGENTA);
         snackbar.show();
+    }
+
+
+    /*void bluetoothScanning(){
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        context.registerReceiver(mReceiver, filter);
+        final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        Timer timer = new Timer();
+
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                //disconnect();
+                Log.i("@@@@@@@@@@@@@@@@@@@@@: " , "time " + Calendar.getInstance().getTime());
+               // mBluetoothAdapter.startDiscovery();
+
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
+
+                long start = System.currentTimeMillis();
+                long end = start + 10*1000;
+                while (System.currentTimeMillis() < end) {
+                    // Some expensive operation on the item.
+                }
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+               // connect();
+            }
+        }, 0, 1000 * 60 * 2);
+
+    }
+*/
+
+    void startBluetoothScanning(){
+        //IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        //context.registerReceiver(mReceiver, filter);
+        scanning = true;
+        Timer timer = new Timer();
+
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.i("@@@@@@@@@@@@@@@@@@@@@: " , "time " + Calendar.getInstance().getTime());
+                // mBluetoothAdapter.startDiscovery();
+                neighborDevices.clear();
+                mBluetoothAdapter.startLeScan(mLeScanCallback);
+
+                long start = System.currentTimeMillis();
+                long end = start + 10*1000;
+               // while (System.currentTimeMillis() < end) {
+                    // Some expensive operation on the item.
+               // }
+            }
+        }, 5 * 1000);
+    }
+    void stopBluetoothScanning(final int scanTime){
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.i("@@@@@@@@stop: " , "time " + Calendar.getInstance().getTime());
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                scanning = false;
+                connect();
+                mqttConnection.publishNeighborDevices(neighborDevices);
+            }
+        }, (5 + scanTime) * 1000);
+    }
+
+    // Create a BroadcastReceiver for ACTION_FOUND.
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                // Discovery has found a device. Get the BluetoothDevice
+                // object and its info from the Intent.
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                String deviceName = device.getName();
+                String deviceHardwareAddress = device.getAddress(); // MAC address
+
+                Log.i("Device Name: " , "device " + deviceName);
+                Log.i("deviceHardwareAddress " , "hard"  + deviceHardwareAddress);
+            }
+        }
+    };
+
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+            // BLE device was found, we can get its information now
+            if (device.getName()!= null ) {
+                if (myDevices.contains(device.getAddress()) && !neighborDevices.contains(device.getAddress())){
+                    neighborDevices.add(device.getAddress());
+                }
+                Log.i("&&&&&&&&&&&&&&&&&", "BLE device found: " + device.getName() + "; MAC " + device.getAddress());
+            }
+
+        }
+
+    };
+
+    private void connect (){
+        if (device.isInitialized() || device.isConnected()) {
+            showTransientSnackbar(R.string.controlcenter_snackbar_need_longpress);
+        } else {
+            showTransientSnackbar(R.string.controlcenter_snackbar_connecting);
+            GBApplication.deviceService().connect(device);
+        }
+    }
+
+    private void disconnect(){
+        if (device.getState() != GBDevice.State.NOT_CONNECTED) {
+            showTransientSnackbar(R.string.controlcenter_snackbar_disconnecting);
+            GBApplication.deviceService().disconnect();
+        }
+    }
+
+    private void listenForMqttScheduler(final Context ctx) throws MqttException {
+        if (mqttConnection == null || !mqttConnection.isSubscribed("getDevices")){
+            //mqttConnection.
+            mqttConnection = new MQTTconnection(ctx, "getDevices", null, null);
+            mqttConnection.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable throwable) {
+                    Log.w("CONNECTION LOST", "listenForMqttScheduler");
+                    subscribed = false;
+                    try {
+                        listenForMqttScheduler(ctx);
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+                    Toast.makeText(context, "Message arrived", Toast.LENGTH_LONG).show();
+                    Log.w("Debug", "***********");
+                    Log.w("Debug", topic + mqttMessage.toString());
+                    scanTime = Integer.parseInt(mqttMessage.toString());
+                    disconnect();
+                    startBluetoothScanning();
+                    stopBluetoothScanning(scanTime);
+
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+
+                }
+            });
+            subscribed = true;
+        }
     }
 
 }

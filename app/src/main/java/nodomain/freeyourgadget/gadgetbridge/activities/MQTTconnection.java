@@ -1,5 +1,6 @@
 package nodomain.freeyourgadget.gadgetbridge.activities;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -28,6 +29,8 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Properties;
@@ -60,8 +63,8 @@ public class MQTTconnection {
     private final String clientId = MqttClient.generateClientId();
     private final String username = "bkogut";
     private final String password = "Zyw0tStud3nta@";//"Zyw0tStud3nt@";
+    private List<String> subscribedTopics = new ArrayList<>();
     String exportPath = "";
-
 
     public MQTTconnection(final Context context, final String action, String mail, String sms){
         userMail = mail;
@@ -77,7 +80,10 @@ public class MQTTconnection {
 
             @Override
             public void connectionLost(Throwable throwable) {
+                Log.w("CONNECTION LOST", "MQTTconnection");
 
+                if (action == "getDevice")
+                    connect(context, action);
             }
             @Override
             public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
@@ -98,43 +104,47 @@ public class MQTTconnection {
 
     private void connect(final Context context, final String action){
         MqttConnectOptions mqttConnectOptions = new MqttConnectOptions();
-        /*InputStream input;
-        try {
-            input = context.getAssets().open("ca.bks");
-            mqttConnectOptions.setSocketFactory(mqttAndroidClient.getSSLSocketFactory(input, "password"));
-        } catch (IOException | MqttSecurityException e) {
-            Log.d("ssl_connection:", "failure");
-            e.printStackTrace();
-        }
-          catch(NullPointerException e){
-            Log.e("ssl_connection:", e.toString());
-        }
-*/
+
         mqttConnectOptions.setCleanSession(true);
         mqttConnectOptions.setUserName(username);
         mqttConnectOptions.setPassword(password.toCharArray());
+        mqttConnectOptions.setKeepAliveInterval(3600);
         try {
             mqttAndroidClient.connect(mqttConnectOptions, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     System.out.println("MQTT: Successfully connected to server: " + serverUri);
-                    if (action == "steps")
+                    if (action == "steps") {
                         publishSteps(context);
-                    else if (action == "mailSms")
+                        Toast.makeText(context, "Opublikowano kroki", Toast.LENGTH_LONG).show();
+                    }
+                    else if (action == "mailSms") {
                         publishMailSms();
-                    else if (action.matches("\\d+"))
+                        Toast.makeText(context, "Opublikowano notyfikacje", Toast.LENGTH_LONG).show();
+                    }
+                    else if (action.matches("\\d+")) {
                         publishMood(action);
+                        Toast.makeText(context, "Opublikowano samopoczucie", Toast.LENGTH_LONG).show();
+                    }
+                    else if (action == "getDevices") {
+                        try {
+                            subscribe("getDevices");
+                        } catch (MqttException e) {
+                            e.printStackTrace();
+                        }
+                    }
 
-                    Toast.makeText(context, "Opublikowano", Toast.LENGTH_LONG).show();
                 }
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     Log.w("Mqtt", "Failed to connect to: " + serverUri + exception.toString());
-                    if (iteration < 10)
+                    if (iteration < 50)
                         connect(context, action);
                     iteration ++;
-                    if (iteration == 10)
+                    if (iteration == 10) {
+                        Log.w("Mqtt", "Niepowodzenie. Sprawdź połączenie z Internetem");
                         Toast.makeText(context, "Niepowodzenie. Sprawdź połączenie z Internetem", Toast.LENGTH_LONG).show();
+                    }
                 }
             });
         } catch (MqttException ex){
@@ -181,13 +191,10 @@ public class MQTTconnection {
                     e.printStackTrace();
                 }
                 publish(topic, message);
-                System.out.println("Published" );
 
                 SharedPreferences.Editor mEditor = sharedPrefs.edit();
                 mEditor.putString("lastTimestamp", cursor.getString(0)).commit();
             }
-            Toast.makeText(context, "Published", Toast.LENGTH_SHORT).show();
-
         }
     }
     private void publishMailSms(){
@@ -212,6 +219,7 @@ public class MQTTconnection {
 
     }
 
+    @SuppressLint("SimpleDateFormat")
     private void publishMood(String mood){
         String topic = "gbBKogut/MiBand/" + connectedDevice.toString();
         String messageMood = null;
@@ -219,13 +227,32 @@ public class MQTTconnection {
         try {
             messageMood = new JSONObject()
                     .put("deviceId", connectedDevice.toString())
-                    .put("timestamp", Calendar.getInstance().getTime())
+                    .put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()))
                     .put("mood", mood).toString();
         } catch (JSONException e) {
             e.printStackTrace();
         }
         if (mood != null )
             publish(topic + "/mood", messageMood);
+    }
+
+    @SuppressLint("SimpleDateFormat")
+    public void publishNeighborDevices(List<String> devices){
+        String topic = "gbBKogut/MiBand/" + connectedDevice.toString();
+        String messageDevices = null;
+
+        try {
+            messageDevices = new JSONObject()
+                    .put("deviceId", connectedDevice.toString())
+                    .put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()))//Calendar.getInstance().getTime())
+                    .put("devices", devices).toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (devices != null && !devices.isEmpty() )
+            publish(topic + "/neighborDevices", messageDevices);
+        else
+            publish(topic + "/neighborDevices", "null");
     }
 
     private void exportDB(Context context) {
@@ -260,4 +287,12 @@ public class MQTTconnection {
 
     }
 
+    public void subscribe(String topic) throws MqttException {
+        mqttAndroidClient.subscribe("gbBKogut/MiBand/" + topic, 0);
+        subscribedTopics.add(topic);
+    }
+
+    public boolean isSubscribed(String topic) throws MqttException {
+        return subscribedTopics.contains(topic);
+    }
 }
