@@ -22,6 +22,9 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import org.slf4j.Logger;
@@ -74,6 +77,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.MusicSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.MusicStateSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationType;
+import nodomain.freeyourgadget.gadgetbridge.model.RecordedDataTypes;
 import nodomain.freeyourgadget.gadgetbridge.model.WeatherSpec;
 import nodomain.freeyourgadget.gadgetbridge.service.btle.AbstractBTLEDeviceSupport;
 import nodomain.freeyourgadget.gadgetbridge.service.btle.BLETypeConversions;
@@ -96,6 +100,7 @@ import nodomain.freeyourgadget.gadgetbridge.util.GB;
 import nodomain.freeyourgadget.gadgetbridge.util.NotificationUtils;
 import nodomain.freeyourgadget.gadgetbridge.util.Prefs;
 
+import static nodomain.freeyourgadget.gadgetbridge.GBApplication.getContext;
 import static nodomain.freeyourgadget.gadgetbridge.devices.miband.MiBandConst.DEFAULT_VALUE_FLASH_COLOUR;
 import static nodomain.freeyourgadget.gadgetbridge.devices.miband.MiBandConst.DEFAULT_VALUE_FLASH_COUNT;
 import static nodomain.freeyourgadget.gadgetbridge.devices.miband.MiBandConst.DEFAULT_VALUE_FLASH_DURATION;
@@ -1092,20 +1097,38 @@ public class MiBandSupport extends AbstractBTLEDeviceSupport {
                 break;
 
             case MiBandService.NOTIFY_SET_LATENCY_SUCCESS:
-                LOG.info("Setting latency succeeded.");
-                Timer timer = new Timer();
-                timer.schedule(new TimerTask() {
+                LOG.info("Setting latency succeeded. MiBandSuport");
+
+                fetchActivityData();
+
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "");
+                        Log.i("WAIT start: " , "time " + Calendar.getInstance().getTime());
+                        Log.i("GB_STATUS: " , String.valueOf(gbDevice.isInitialized()) + "_" + String.valueOf(gbDevice.isConnected()) + "_" + String.valueOf(gbDevice.isConnecting()) + "_" + String.valueOf(gbDevice.isConnecting()));
+                        if(gbDevice.isInitialized() || gbDevice.isConnected()){
+                            MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
+                            disconnect();
+                        }
                     }
-                }, 0, 1000 * 60 * 30);
-
+                }, (30) * 1000);
 
                 break;
             default:
                 LOG.warn("DATA: " + GB.hexdump(value, 0, value.length));
         }
+    }
+
+    private void fetchActivityData (){
+        Log.w("InfoMiBandSuport", "pobieram dane");
+        GBApplication.deviceService().onFetchRecordedData(RecordedDataTypes.TYPE_ACTIVITY);
+    }
+
+    private void disconnect(){
+        Log.w("*DisconnectMiBandSuport", "Disconnected");
+        GBApplication.deviceService().disconnect();
+
     }
 
     private void doInitialize() {

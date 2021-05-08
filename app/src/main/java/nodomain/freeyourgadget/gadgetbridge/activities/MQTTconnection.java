@@ -1,17 +1,16 @@
 package nodomain.freeyourgadget.gadgetbridge.activities;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.widget.Toast;
 
+
+import com.google.gson.Gson;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -22,32 +21,27 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.MqttSecurityException;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Properties;
+import java.util.Map;
 import java.util.Timer;
-import java.util.TimerTask;
 
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
-import nodomain.freeyourgadget.gadgetbridge.R;
 import nodomain.freeyourgadget.gadgetbridge.database.DBHandler;
 import nodomain.freeyourgadget.gadgetbridge.database.DBHelper;
 import nodomain.freeyourgadget.gadgetbridge.database.schema.myDBHandler;
 import nodomain.freeyourgadget.gadgetbridge.util.FileUtils;
-import nodomain.freeyourgadget.gadgetbridge.util.GB;
 import nodomain.freeyourgadget.gadgetbridge.util.ImportExportSharedPreferences;
-
-import static android.bluetooth.BluetoothProfile.GATT;
-import static android.content.Context.BLUETOOTH_SERVICE;
 
 public class MQTTconnection {
     private static SharedPreferences sharedPrefs;
@@ -58,6 +52,7 @@ public class MQTTconnection {
     private String connectedDevice;
     private final String userMail;
     private final String userSms;
+    private List<String> neighborDevices = new ArrayList<>();
     private MqttAndroidClient mqttAndroidClient;
     private final String serverUri = "ssl://mqtt.tele.pw.edu.pl:8883";//"ssl://10.10.80.55:8883";
     private final String clientId = MqttClient.generateClientId();
@@ -66,9 +61,10 @@ public class MQTTconnection {
     private List<String> subscribedTopics = new ArrayList<>();
     String exportPath = "";
 
-    public MQTTconnection(final Context context, final String action, String mail, String sms){
+    public MQTTconnection(final Context context, final String action, String mail, String sms, List<String> devices){
         userMail = mail;
         userSms = sms;
+        neighborDevices = devices;
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
         //BluetoothManager manager = (BluetoothManager) context.getSystemService(BLUETOOTH_SERVICE);
         //connectedDevice = manager.getConnectedDevices(GATT);
@@ -114,11 +110,11 @@ public class MQTTconnection {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     System.out.println("MQTT: Successfully connected to server: " + serverUri);
-                    if (action == "steps") {
+                    if (action.equals("steps")) {
                         publishSteps(context);
                         Toast.makeText(context, "Opublikowano kroki", Toast.LENGTH_LONG).show();
                     }
-                    else if (action == "mailSms") {
+                    else if (action.equals("mailSms")) {
                         publishMailSms();
                         Toast.makeText(context, "Opublikowano notyfikacje", Toast.LENGTH_LONG).show();
                     }
@@ -126,24 +122,52 @@ public class MQTTconnection {
                         publishMood(action);
                         Toast.makeText(context, "Opublikowano samopoczucie", Toast.LENGTH_LONG).show();
                     }
-                    else if (action == "getDevices") {
+                    else if (action.equals("sendDevices")) {
+                        publishNeighborDevices(neighborDevices);
+                        Toast.makeText(context, "Opublikowano urządzenia w pobliżu", Toast.LENGTH_LONG).show();
+                    }
+                    else if (action.equals("getConfiguration")) {
                         try {
-                            subscribe("getDevices");
+                            subscribe("configuration");
+
+                            Handler handler = new Handler();
+                            handler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    askForConfiguration();
+                                }
+                            }, 5 * 1000);
                         } catch (MqttException e) {
                             e.printStackTrace();
                         }
                     }
 
                 }
+                @SuppressLint("SimpleDateFormat")
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     Log.w("Mqtt", "Failed to connect to: " + serverUri + exception.toString());
-                    if (iteration < 50)
+                    if (iteration < 10)
                         connect(context, action);
                     iteration ++;
                     if (iteration == 10) {
                         Log.w("Mqtt", "Niepowodzenie. Sprawdź połączenie z Internetem");
                         Toast.makeText(context, "Niepowodzenie. Sprawdź połączenie z Internetem", Toast.LENGTH_LONG).show();
+                    }
+                    if (iteration == 10) {
+                        if (action.equals("sendDevices")) {
+                            try {
+                                saveNeighbors(neighborDevices, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                        } else if (action.matches("\\d+")) {
+                            try {
+                                saveMood(action, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
             });
@@ -225,15 +249,25 @@ public class MQTTconnection {
         String messageMood = null;
 
         try {
-            messageMood = new JSONObject()
-                    .put("deviceId", connectedDevice.toString())
-                    .put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()))
-                    .put("mood", mood).toString();
+            HashMap<String, String> hashMap = loadMoodFromPrefs();
+            hashMap.put(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()), mood);
+
+            for (Map.Entry<String, String> map : hashMap.entrySet()) {
+                messageMood = new JSONObject()
+                        .put("deviceId", connectedDevice.toString())
+                        .put("timestamp", map.getKey())
+                        .put("mood", map.getValue()).toString();
+
+                if (mood != null )
+                    publish(topic + "/mood", messageMood);
+            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        if (mood != null )
-            publish(topic + "/mood", messageMood);
+
+        SharedPreferences.Editor editor = sharedPrefs.edit();
+        editor.remove(connectedDevice + "_mood");
+        editor.apply();
     }
 
     @SuppressLint("SimpleDateFormat")
@@ -242,17 +276,25 @@ public class MQTTconnection {
         String messageDevices = null;
 
         try {
-            messageDevices = new JSONObject()
-                    .put("deviceId", connectedDevice.toString())
-                    .put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()))//Calendar.getInstance().getTime())
-                    .put("devices", devices).toString();
+            HashMap<String, List<String>> hashMap = loadNeighbors();
+            hashMap.put(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()), devices);
+
+            for (Map.Entry<String, List<String>> map : hashMap.entrySet()) {
+
+                messageDevices = new JSONObject()
+                            .put("deviceId", connectedDevice.toString())
+                            .put("timestamp", map.getKey())
+                            .put("devices", map.getValue()).toString();
+
+                publish(topic + "/neighborDevices", messageDevices);
+            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        if (devices != null && !devices.isEmpty() )
-            publish(topic + "/neighborDevices", messageDevices);
-        else
-            publish(topic + "/neighborDevices", "null");
+
+        SharedPreferences.Editor editor = sharedPrefs.edit();
+        editor.remove(connectedDevice + "_neighbors");
+        editor.apply();
     }
 
     private void exportDB(Context context) {
@@ -294,5 +336,75 @@ public class MQTTconnection {
 
     public boolean isSubscribed(String topic) throws MqttException {
         return subscribedTopics.contains(topic);
+    }
+
+    private void saveNeighbors(List<String> neighborDevices, String time) throws JSONException {
+        HashMap<String, List<String>> hashMap = loadNeighbors();
+        hashMap.put(time, neighborDevices);
+
+        JSONObject jsonObject = new JSONObject(hashMap);
+        String jsonString = jsonObject.toString();
+
+
+        SharedPreferences.Editor mEditor = sharedPrefs.edit();
+        mEditor.putString(connectedDevice + "_neighbors", jsonString).apply();
+    }
+
+    private HashMap<String, List<String>> loadNeighbors() throws JSONException {
+        HashMap<String, List<String>> hashMap = new HashMap<>();
+
+        String jsonString = sharedPrefs.getString(connectedDevice + "_neighbors", (new JSONObject()).toString());
+        JSONObject jsonObject = new JSONObject(jsonString);
+        Iterator<String> keysItr = jsonObject.keys();
+        while(keysItr.hasNext()) {
+            ArrayList<String> neighborList = new ArrayList<String>();
+            String time = keysItr.next();
+            JSONArray neighbors = jsonObject.getJSONArray(time);
+            if (neighbors != null) {
+                int len = neighbors.length();
+                for (int i=0;i<len;i++){
+                    neighborList.add(neighbors.get(i).toString());
+                }
+            }
+
+            //Log.w("SHARED_NEIGHBORS", time + "_" + neighbors);
+            hashMap.put(time, neighborList);
+        }
+        return hashMap;
+    }
+
+    private void askForConfiguration(){
+        String topic = "gbBKogut/MiBand/getConfiguration" ;
+        String message = "";
+
+        publish(topic, message);
+    }
+
+    private void saveMood(String mood, String time) throws JSONException {
+        HashMap<String, String> hashMap = loadMoodFromPrefs();
+        hashMap.put(time, mood);
+
+        JSONObject jsonObject = new JSONObject(hashMap);
+        String jsonString = jsonObject.toString();
+
+
+        SharedPreferences.Editor mEditor = sharedPrefs.edit();
+        mEditor.putString(connectedDevice + "_mood", jsonString).apply();
+    }
+
+    private HashMap<String, String> loadMoodFromPrefs() throws JSONException {
+        HashMap<String, String> hashMap = new HashMap<>();
+
+        String jsonString = sharedPrefs.getString(connectedDevice + "_mood", (new JSONObject()).toString());
+        JSONObject jsonObject = new JSONObject(jsonString);
+        Iterator<String> keysItr = jsonObject.keys();
+        while(keysItr.hasNext()) {
+            String time = keysItr.next();
+            String mood = jsonObject.getString(time);
+
+            Log.w("SHARED_MOOD", time + "_" + mood);
+            hashMap.put(time, mood);
+        }
+        return hashMap;
     }
 }

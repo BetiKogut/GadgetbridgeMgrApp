@@ -377,7 +377,7 @@ public class DbManagementActivity extends AbstractGBActivity implements Location
     }
 
     private void startMqtt(String action) {
-        mqttConnection = new MQTTconnection(getApplicationContext(), action, mail, sms);
+        mqttConnection = new MQTTconnection(getApplicationContext(), action, mail, sms, null);
         mqttConnection.setCallback(new MqttCallback() {
             @Override
             public void connectionLost(Throwable throwable) {

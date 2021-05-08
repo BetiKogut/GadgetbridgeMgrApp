@@ -18,7 +18,10 @@
 package nodomain.freeyourgadget.gadgetbridge.adapter;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -27,7 +30,10 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.text.InputType;
 import android.transition.TransitionManager;
 import android.util.Log;
@@ -54,12 +60,13 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.Timer;
-import java.util.TimerTask;
+import java.util.UUID;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.BundleCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -75,6 +82,7 @@ import nodomain.freeyourgadget.gadgetbridge.activities.ConfigureAlarms;
 import nodomain.freeyourgadget.gadgetbridge.activities.MQTTconnection;
 import nodomain.freeyourgadget.gadgetbridge.activities.VibrationActivity;
 import nodomain.freeyourgadget.gadgetbridge.activities.charts.ChartsActivity;
+import nodomain.freeyourgadget.gadgetbridge.activities.CollectDataService;
 import nodomain.freeyourgadget.gadgetbridge.activities.devicesettings.DeviceSettingsActivity;
 import nodomain.freeyourgadget.gadgetbridge.devices.DeviceCoordinator;
 import nodomain.freeyourgadget.gadgetbridge.devices.DeviceManager;
@@ -86,11 +94,15 @@ import nodomain.freeyourgadget.gadgetbridge.model.RecordedDataTypes;
 import nodomain.freeyourgadget.gadgetbridge.util.DeviceHelper;
 import nodomain.freeyourgadget.gadgetbridge.util.GB;
 
+import static nodomain.freeyourgadget.gadgetbridge.GBApplication.getContext;
+
 /**
  * Adapter for displaying GBDevice instances.
  */
 public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.ViewHolder> {
-
+    //private AlarmManager alarmMgr;
+    //private PendingIntent alarmIntent;
+    /////
     private final Context context;
     private List<GBDevice> deviceList;
     private int expandedDevicePosition = RecyclerView.NO_POSITION;
@@ -105,6 +117,8 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     private int scanTime = 10;
     boolean scanning = false;
 
+    private CollectDataService service = null;
+
     public GBDeviceAdapterv2(Context context, List<GBDevice> deviceList) {
         this.context = context;
         this.deviceList = deviceList;
@@ -118,6 +132,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         return new ViewHolder(view, context);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, final int position) {
         //final GBDevice device = deviceList.get(position);
@@ -206,8 +221,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
                                                     {
                                                         @Override
                                                         public void onClick(View v) {
-                                                            showTransientSnackbar(R.string.busy_task_fetch_activity_data);
-                                                            GBApplication.deviceService().onFetchRecordedData(RecordedDataTypes.TYPE_ACTIVITY);
+                                                            fetchActivityData();
                                                         }
                                                     }
         );
@@ -501,10 +515,9 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
                         .show();
             }
         });
-        try { listenForMqttScheduler(context);
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
+
+        if (!isMyServiceRunning(CollectDataService.class))
+            startScanningData();
     }
 
     @Override
@@ -634,7 +647,7 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         }
 
         private void startMqtt(String action, Context ctx) {
-            mqttConnection = new MQTTconnection(ctx, action, null, null);
+            mqttConnection = new MQTTconnection(ctx, action, null, null, null);
             mqttConnection.setCallback(new MqttCallback() {
 
                 @Override
@@ -715,72 +728,6 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         snackbar.show();
     }
 
-
-    /*void bluetoothScanning(){
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        context.registerReceiver(mReceiver, filter);
-        final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        Timer timer = new Timer();
-
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                //disconnect();
-                Log.i("@@@@@@@@@@@@@@@@@@@@@: " , "time " + Calendar.getInstance().getTime());
-               // mBluetoothAdapter.startDiscovery();
-
-                mBluetoothAdapter.startLeScan(mLeScanCallback);
-
-                long start = System.currentTimeMillis();
-                long end = start + 10*1000;
-                while (System.currentTimeMillis() < end) {
-                    // Some expensive operation on the item.
-                }
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-               // connect();
-            }
-        }, 0, 1000 * 60 * 2);
-
-    }
-*/
-
-    void startBluetoothScanning(){
-        //IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        //context.registerReceiver(mReceiver, filter);
-        scanning = true;
-        Timer timer = new Timer();
-
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                Log.i("@@@@@@@@@@@@@@@@@@@@@: " , "time " + Calendar.getInstance().getTime());
-                // mBluetoothAdapter.startDiscovery();
-                neighborDevices.clear();
-                mBluetoothAdapter.startLeScan(mLeScanCallback);
-
-                long start = System.currentTimeMillis();
-                long end = start + 10*1000;
-               // while (System.currentTimeMillis() < end) {
-                    // Some expensive operation on the item.
-               // }
-            }
-        }, 5 * 1000);
-    }
-    void stopBluetoothScanning(final int scanTime){
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                Log.i("@@@@@@@@stop: " , "time " + Calendar.getInstance().getTime());
-                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                scanning = false;
-                connect();
-                mqttConnection.publishNeighborDevices(neighborDevices);
-            }
-        }, (5 + scanTime) * 1000);
-    }
-
     // Create a BroadcastReceiver for ACTION_FOUND.
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -794,6 +741,13 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
 
                 Log.i("Device Name: " , "device " + deviceName);
                 Log.i("deviceHardwareAddress " , "hard"  + deviceHardwareAddress);
+
+                if (device.getName()!= null ) {
+                    if (myDevices.contains(device.getAddress()) && !neighborDevices.contains(device.getAddress())){
+                        neighborDevices.add(device.getAddress());
+                    }
+                    Log.i("&&&&&&&&&&&&&&&&&", "BLE device found: " + device.getName() + "; MAC " + device.getAddress());
+                }
             }
         }
     };
@@ -829,41 +783,74 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         }
     }
 
-    private void listenForMqttScheduler(final Context ctx) throws MqttException {
-        if (mqttConnection == null || !mqttConnection.isSubscribed("getDevices")){
-            //mqttConnection.
-            mqttConnection = new MQTTconnection(ctx, "getDevices", null, null);
-            mqttConnection.setCallback(new MqttCallback() {
-                @Override
-                public void connectionLost(Throwable throwable) {
-                    Log.w("CONNECTION LOST", "listenForMqttScheduler");
-                    subscribed = false;
-                    try {
-                        listenForMqttScheduler(ctx);
-                    } catch (MqttException e) {
-                        e.printStackTrace();
-                    }
-                }
+    private void fetchActivityData (){
+        Log.w("Info", "pobieram dane");
+        showTransientSnackbar(R.string.busy_task_fetch_activity_data);
+        GBApplication.deviceService().onFetchRecordedData(RecordedDataTypes.TYPE_ACTIVITY);
+        //MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
+    }
 
-                @Override
-                public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                    Toast.makeText(context, "Message arrived", Toast.LENGTH_LONG).show();
-                    Log.w("Debug", "***********");
-                    Log.w("Debug", topic + mqttMessage.toString());
-                    scanTime = Integer.parseInt(mqttMessage.toString());
-                    disconnect();
-                    startBluetoothScanning();
-                    stopBluetoothScanning(scanTime);
-
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
-
-                }
-            });
-            subscribed = true;
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void startScanningData() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        int minute = calendar.get(Calendar.MINUTE);
+        if (minute >= 0 && minute < 15) {
+            calendar.set(Calendar.MINUTE, 15);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
         }
+        if (minute >= 15 && minute < 30) {
+            calendar.set(Calendar.MINUTE, 30);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+        }
+        if (minute >= 30 && minute < 45) {
+            calendar.set(Calendar.MINUTE, 45);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+        }
+        if (minute >= 45){
+            //calendar.set(Calendar.HOUR_OF_DAY, calendar.get(Calendar.HOUR_OF_DAY) + 1);
+            calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+        }
+        Log.w("Debug", "*****" + calendar.getTime());
+
+        Intent intent = new Intent(context, CollectDataService.class);
+
+        //Bundle b = new Bundle();
+        //b.putParcelable("data", device);
+        //intent.putExtra("data", b);
+        final Bundle bundle = new Bundle();
+        BundleCompat.putBinder(bundle,"KEY", new ObjectWrapperForBinder(device));
+        intent.putExtras(bundle);
+        UUID uuid = UUID.randomUUID();
+
+        PendingIntent pintent = PendingIntent.getService(context, uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        //PendingIntent pintent = PendingIntent.getBroadcast(context, uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,  calendar.getTimeInMillis(), pintent);
+
+
+        //alarm.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), 15 * 60 * 1000, pintent);
+        //alarm.setInexactRepeating(AlarmManager.RTC_WAKEUP,
+               // calendar.getTimeInMillis(),//SystemClock.elapsedRealtime(),
+                //AlarmManager.INTERVAL_FIFTEEN_MINUTES, pintent);
+    }
+
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }
