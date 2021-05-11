@@ -110,12 +110,6 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
     private GBDevice device = null;
     private static Timer timer = new Timer(false);
     private static MQTTconnection mqttConnection;
-    private boolean subscribed = false;
-    private List<String> neighborDevices = new ArrayList<>();
-    private List<String> myDevices = new ArrayList<>(Arrays.asList("C1:BE:2C:35:A6:45", "F1:96:86:DC:94:EA", "F0:F9:B3:A4:14:8A", "EC:86:E9:AF:93:B9", "C1:70:F6:3D:D9:36",    "ED:A9:27:9E:CF:70", "C8:0F:10:25:2C:B7"));
-    final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    private int scanTime = 10;
-    boolean scanning = false;
 
     private CollectDataService service = null;
 
@@ -139,17 +133,57 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         device = deviceList.get(position);
         final DeviceCoordinator coordinator = DeviceHelper.getInstance().getCoordinator(device);
 
+        //
+        holder.greenButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startMqtt("5", context);
+                updateAndPublishData();
+                Log.d("!!!!!!!!!!","green mood tapped");
+            }
+        });
+
+        holder.lightGreenButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startMqtt("4", context);
+                updateAndPublishData();
+                Log.d("!!!!!!!!!!","light green mood tapped");
+            }
+        });
+
+        holder.yellowButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startMqtt("3", context);
+                updateAndPublishData();
+                Log.d("!!!!!!!!!!","yellow mood tapped");
+            }
+        });
+
+        holder.orangeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startMqtt("2", context);
+                updateAndPublishData();
+                Log.d("!!!!!!!!!!","orange mood clicked");
+            }
+        });
+
+        holder.redButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startMqtt("1", context);
+                updateAndPublishData();
+                Log.d("!!!!!!!!!!","red mood tapped");
+            }
+        });
+        //
+
         holder.container.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
-               /* if (device.isInitialized() || device.isConnected()) {
-                    showTransientSnackbar(R.string.controlcenter_snackbar_need_longpress);
-                } else {
-                    showTransientSnackbar(R.string.controlcenter_snackbar_connecting);
-                    GBApplication.deviceService().connect(device);
-                }
-                */
                 connect();
             }
         });
@@ -157,10 +191,6 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         holder.container.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                //if (device.getState() != GBDevice.State.NOT_CONNECTED) {
-                //    showTransientSnackbar(R.string.controlcenter_snackbar_disconnecting);
-                //    GBApplication.deviceService().disconnect();
-                //}
                 disconnect();
                 return true;
             }
@@ -601,71 +631,11 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
             ledColor = view.findViewById(R.id.device_led_color);
 
             greenButton = view.findViewById(R.id.greenButton);
-            greenButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startMqtt("5", context);
-                    Log.d("!!!!!!!!!!","green mood tapped");
-                }
-            });
-
             lightGreenButton = view.findViewById(R.id.lightGreenButton);
-            lightGreenButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startMqtt("4", context);
-                    Log.d("!!!!!!!!!!","light green mood tapped");
-                }
-            });
-
             yellowButton = view.findViewById(R.id.yellowButton);
-            yellowButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startMqtt("3", context);
-                    Log.d("!!!!!!!!!!","yellow mood tapped");
-                }
-            });
-
             orangeButton = view.findViewById(R.id.orangeButton);
-            orangeButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startMqtt("2", context);
-                    Log.d("!!!!!!!!!!","orange mood clicked");
-                }
-            });
-
             redButton = view.findViewById(R.id.redButton);
-            redButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    startMqtt("1", context);
-                    Log.d("!!!!!!!!!!","red mood tapped");
-                }
-            });
         }
-
-        private void startMqtt(String action, Context ctx) {
-            mqttConnection = new MQTTconnection(ctx, action, null, null, null);
-            mqttConnection.setCallback(new MqttCallback() {
-
-                @Override
-                public void connectionLost(Throwable throwable) {
-                }
-
-                @Override
-                public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                    Log.w("Debug", mqttMessage.toString());
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
-
-                }
-            });
-        }
-
     }
 
     private void justifyListViewHeightBasedOnChildren(ListView listView) {
@@ -728,45 +698,6 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         snackbar.show();
     }
 
-    // Create a BroadcastReceiver for ACTION_FOUND.
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-
-                Log.i("Device Name: " , "device " + deviceName);
-                Log.i("deviceHardwareAddress " , "hard"  + deviceHardwareAddress);
-
-                if (device.getName()!= null ) {
-                    if (myDevices.contains(device.getAddress()) && !neighborDevices.contains(device.getAddress())){
-                        neighborDevices.add(device.getAddress());
-                    }
-                    Log.i("&&&&&&&&&&&&&&&&&", "BLE device found: " + device.getName() + "; MAC " + device.getAddress());
-                }
-            }
-        }
-    };
-
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            // BLE device was found, we can get its information now
-            if (device.getName()!= null ) {
-                if (myDevices.contains(device.getAddress()) && !neighborDevices.contains(device.getAddress())){
-                    neighborDevices.add(device.getAddress());
-                }
-                Log.i("&&&&&&&&&&&&&&&&&", "BLE device found: " + device.getName() + "; MAC " + device.getAddress());
-            }
-
-        }
-
-    };
-
     private void connect (){
         if (device.isInitialized() || device.isConnected()) {
             showTransientSnackbar(R.string.controlcenter_snackbar_need_longpress);
@@ -787,60 +718,22 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         Log.w("Info", "pobieram dane");
         showTransientSnackbar(R.string.busy_task_fetch_activity_data);
         GBApplication.deviceService().onFetchRecordedData(RecordedDataTypes.TYPE_ACTIVITY);
-        //MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void startScanningData() {
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(System.currentTimeMillis());
-        int minute = calendar.get(Calendar.MINUTE);
-        if (minute >= 0 && minute < 15) {
-            calendar.set(Calendar.MINUTE, 15);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-        }
-        if (minute >= 15 && minute < 30) {
-            calendar.set(Calendar.MINUTE, 30);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-        }
-        if (minute >= 30 && minute < 45) {
-            calendar.set(Calendar.MINUTE, 45);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-        }
-        if (minute >= 45){
-            //calendar.set(Calendar.HOUR_OF_DAY, calendar.get(Calendar.HOUR_OF_DAY) + 1);
-            calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
-            calendar.set(Calendar.MINUTE, 0);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-        }
-        Log.w("Debug", "*****" + calendar.getTime());
-
         Intent intent = new Intent(context, CollectDataService.class);
 
-        //Bundle b = new Bundle();
-        //b.putParcelable("data", device);
-        //intent.putExtra("data", b);
-        final Bundle bundle = new Bundle();
-        BundleCompat.putBinder(bundle,"KEY", new ObjectWrapperForBinder(device));
-        intent.putExtras(bundle);
+        //final Bundle bundle = new Bundle();
+        //BundleCompat.putBinder(bundle,"KEY", new ObjectWrapperForBinder(device));
+        //intent.putExtras(bundle);
         UUID uuid = UUID.randomUUID();
 
         PendingIntent pintent = PendingIntent.getService(context, uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        //PendingIntent pintent = PendingIntent.getBroadcast(context, uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
-
         AlarmManager alarm = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,  calendar.getTimeInMillis(), pintent);
-
-
-        //alarm.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), 15 * 60 * 1000, pintent);
-        //alarm.setInexactRepeating(AlarmManager.RTC_WAKEUP,
-               // calendar.getTimeInMillis(),//SystemClock.elapsedRealtime(),
-                //AlarmManager.INTERVAL_FIFTEEN_MINUTES, pintent);
+        alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,  SystemClock.elapsedRealtime(), pintent);
+//SystemClock.elapsedRealtime()
     }
 
     private boolean isMyServiceRunning(Class<?> serviceClass) {
@@ -852,5 +745,51 @@ public class GBDeviceAdapterv2 extends RecyclerView.Adapter<GBDeviceAdapterv2.Vi
         }
         return false;
     }
+
+    private void updateAndPublishData(){
+        connect();
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (device.isConnected() || device.isInitialized()){
+                    fetchActivityData();
+                    Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
+                            disconnect();
+                        }
+                    }, 30 * 1000);
+                } else {
+                    disconnect();
+                }
+            }
+        }, 20 * 1000);
+
+    }
+
+    private void startMqtt(String action, Context ctx) {
+        mqttConnection = new MQTTconnection(ctx, action, null, null, null);
+        mqttConnection.setCallback(new MqttCallback() {
+
+            @Override
+            public void connectionLost(Throwable throwable) {
+            }
+
+            @Override
+            public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+                Log.w("Debug", mqttMessage.toString());
+            }
+
+            @Override
+            public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+
+            }
+        });
+    }
+
+
 
 }

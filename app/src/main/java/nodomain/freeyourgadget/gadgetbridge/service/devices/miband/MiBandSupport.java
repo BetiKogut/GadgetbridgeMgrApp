@@ -1099,7 +1099,7 @@ public class MiBandSupport extends AbstractBTLEDeviceSupport {
             case MiBandService.NOTIFY_SET_LATENCY_SUCCESS:
                 LOG.info("Setting latency succeeded. MiBandSuport");
 
-                fetchActivityData();
+                //fetchActivityData();
 
                 Handler handler = new Handler(Looper.getMainLooper());
                 handler.postDelayed(new Runnable() {
@@ -1108,8 +1108,8 @@ public class MiBandSupport extends AbstractBTLEDeviceSupport {
                         Log.i("WAIT start: " , "time " + Calendar.getInstance().getTime());
                         Log.i("GB_STATUS: " , String.valueOf(gbDevice.isInitialized()) + "_" + String.valueOf(gbDevice.isConnected()) + "_" + String.valueOf(gbDevice.isConnecting()) + "_" + String.valueOf(gbDevice.isConnecting()));
                         if(gbDevice.isInitialized() || gbDevice.isConnected()){
-                            MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
-                            disconnect();
+                           // MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
+                           // disconnect();
                         }
                     }
                 }, (30) * 1000);

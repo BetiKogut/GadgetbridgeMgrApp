@@ -45,9 +45,9 @@ import nodomain.freeyourgadget.gadgetbridge.service.btle.GattService;
 import static nodomain.freeyourgadget.gadgetbridge.GBApplication.getContext;
 
 public class CollectDataService extends Service {
-    GBDevice gbDevice;
+    //GBDevice gbDevice;
     private List<String> neighborDevices = new ArrayList<>();
-    private final List<String> myDevices = new ArrayList<>(Arrays.asList("C1:BE:2C:35:A6:45", "F1:96:86:DC:94:EA", "F0:F9:B3:A4:14:8A", "EC:86:E9:AF:93:B9", "C1:70:F6:3D:D9:36",    "ED:A9:27:9E:CF:70", "C8:0F:10:25:2C:B7"));
+    private final List<String> myDevices = new ArrayList<>(Arrays.asList("C1:BE:2C:35:A6:45", "F1:96:86:DC:94:EA", "F0:F9:B3:A4:14:8A", "EC:86:E9:AF:93:B9", "C1:70:F6:3D:D9:36", "C4:86:10:5D:27:B8", "E4:78:1A:21:AA:C0", "C2:E2:D5:2C:CD:80", "F1:B5:7F:5A:2B:59", "F2:7E:11:13:98:0F", "ED:A9:27:9E:CF:70", "C8:0F:10:25:2C:B7", "C8:0F:10:24:B0:50"));
     final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private static MQTTconnection mqttConnection;
     private int scanTime = 30; //seconds
@@ -63,7 +63,7 @@ public class CollectDataService extends Service {
         public void onCreate() {
             // TODO Auto-generated method stub
             Log.w("TIMER", "Service Created m");
-            Toast.makeText(getApplicationContext(), "Service Created m", Toast.LENGTH_LONG).show();
+           // Toast.makeText(getApplicationContext(), "Service Created m", Toast.LENGTH_LONG).show();
             super.onCreate();
         }
 
@@ -77,46 +77,21 @@ public class CollectDataService extends Service {
         @RequiresApi(api = Build.VERSION_CODES.M)
         @Override
         public int onStartCommand(Intent intent, int flags, int startId) {
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTimeInMillis(System.currentTimeMillis());
-            int minute = calendar.get(Calendar.MINUTE);
+            //GBDevice device = ((ObjectWrapperForBinder)intent.getExtras().getBinder("KEY")).getData();
 
-            GBDevice device = ((ObjectWrapperForBinder)intent.getExtras().getBinder("KEY")).getData();
-
-            if (device != null){
-                gbDevice = device;
-            }
+            //if (device != null){
+            //    gbDevice = device;
+            //}
             // TODO Auto-generated method stub
             Log.w("TIMER", "Service Running m");
-            Toast.makeText(getApplicationContext(), "Service Running m", Toast.LENGTH_LONG).show();
+            //Toast.makeText(getApplicationContext(), "Service Running m", Toast.LENGTH_LONG).show();
 
             disconnect();
             startBluetoothScanning();
             stopBluetoothScanning();
 
-            if (minute >= 0 && minute < 15) {
-                calendar.set(Calendar.MINUTE, 15);
-                calendar.set(Calendar.SECOND, 0);
-                calendar.set(Calendar.MILLISECOND, 0);
-            }
-            if (minute >= 15 && minute < 30) {
-                calendar.set(Calendar.MINUTE, 30);
-                calendar.set(Calendar.SECOND, 0);
-                calendar.set(Calendar.MILLISECOND, 0);
-            }
-            if (minute >= 30 && minute < 45) {
-                calendar.set(Calendar.MINUTE, 45);
-                calendar.set(Calendar.SECOND, 0);
-                calendar.set(Calendar.MILLISECOND, 0);
-            }
-            if (minute >= 45){
-                //calendar.set(Calendar.HOUR_OF_DAY, calendar.get(Calendar.HOUR) + 1);
-                //calendar.add(Calendar.HOUR, 1);
-                calendar.add(Calendar.HOUR_OF_DAY, 1);
-                calendar.set(Calendar.MINUTE, 0);
-                calendar.set(Calendar.SECOND, 0);
-                calendar.set(Calendar.MILLISECOND, 0);
-            }
+            Calendar calendar = getExecutionTime();
+
             UUID uuid = UUID.randomUUID();
             Log.w("Debug", "*****" + calendar.getTime());
             PendingIntent pintent = PendingIntent.getService(getContext(), uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -130,6 +105,75 @@ public class CollectDataService extends Service {
 
             return START_STICKY;
         }
+    public Calendar getExecutionTime(){
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        int minute = calendar.get(Calendar.MINUTE);
+
+        switch (interval) {
+            case 15:
+                if (minute >= 0 && minute < 15) {
+                    calendar.set(Calendar.MINUTE, 15);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 15 && minute < 30) {
+                    calendar.set(Calendar.MINUTE, 30);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 30 && minute < 45) {
+                    calendar.set(Calendar.MINUTE, 45);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 45) {
+                    calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                break;
+            case 20:
+                if (minute >= 0 && minute < 20) {
+                    calendar.set(Calendar.MINUTE, 20);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 20 && minute < 40) {
+                    calendar.set(Calendar.MINUTE, 40);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 40) {
+                    calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                break;
+            case 30:
+                if (minute >= 0 && minute < 30) {
+                    calendar.set(Calendar.MINUTE, 30);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                if (minute >= 30) {
+                    calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                }
+                break;
+            case 60:
+                calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 1);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+                break;
+        }
+        return calendar;
+    }
 
     private void getConfiguration(){
             mqttConnection = new MQTTconnection(getContext(), "getConfiguration", null, null, null);
@@ -141,7 +185,7 @@ public class CollectDataService extends Service {
 
                 @Override
                 public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                    Toast.makeText(getContext(), "Message arrived", Toast.LENGTH_LONG).show();
+                    //Toast.makeText(getContext(), "Message arrived", Toast.LENGTH_LONG).show();
                     Log.w("Debug", topic + mqttMessage.toString());
 
                     JSONObject data = new JSONObject(mqttMessage.toString());
@@ -164,7 +208,9 @@ public class CollectDataService extends Service {
     }
 
     private void connect (){
-        GBApplication.deviceService().connect(gbDevice);
+        GBApplication.deviceService().connect();
+        fetchActivityData();
+
     }
 
 
@@ -196,6 +242,25 @@ public class CollectDataService extends Service {
 
             }
         }, (5 + scanTime) * 1000);
+    }
+    private void fetchActivityData (){
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.w("CollectDataService", "pobieram dane");
+                GBApplication.deviceService().onFetchRecordedData(RecordedDataTypes.TYPE_ACTIVITY);
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        MQTTconnection mqttConnection = new MQTTconnection(getContext(), "steps", "", "", null);
+                        disconnect();
+                    }
+                }, (30) * 1000);
+
+            }
+        }, (30) * 1000);
     }
 
     // Create a BroadcastReceiver for ACTION_FOUND.

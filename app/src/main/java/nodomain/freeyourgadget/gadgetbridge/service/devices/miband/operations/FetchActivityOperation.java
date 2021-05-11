@@ -19,6 +19,7 @@ package nodomain.freeyourgadget.gadgetbridge.service.devices.miband.operations;
 
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.util.Log;
 import android.widget.Toast;
 
 import org.slf4j.Logger;
@@ -156,12 +157,24 @@ public class FetchActivityOperation extends AbstractMiBand1Operation {
 
     public FetchActivityOperation(MiBandSupport support) {
         super(support);
-        hasExtendedActivityData = support.getDeviceInfo().supportsHeartrate();
-        hasPacketCounter = support.getDeviceInfo().getProfileVersion() >= 0x02000700;
-        //temporary buffer, size is a multiple of 60 because we want to store complete minutes (1 minute = 3 or 4 bytes)
-        int activityDataHolderSize = getBytesPerMinuteOfActivityData() * 60 * 4;
-        int maxDataPacketLength = hasPacketCounter ? (hasExtendedActivityData ? 16 : 18) : 20;
-        activityStruct = new ActivityStruct(activityDataHolderSize, maxDataPacketLength);
+        Log.w("FETCH", "isNotNull?");
+        if (support.getDeviceInfo() != null) {
+            Log.w("FETCH", " not null");
+            hasExtendedActivityData = support.getDeviceInfo().supportsHeartrate();
+            hasPacketCounter = support.getDeviceInfo().getProfileVersion() >= 0x02000700;
+            //temporary buffer, size is a multiple of 60 because we want to store complete minutes (1 minute = 3 or 4 bytes)
+            int activityDataHolderSize = getBytesPerMinuteOfActivityData() * 60 * 4;
+            int maxDataPacketLength = hasPacketCounter ? (hasExtendedActivityData ? 16 : 18) : 20;
+            activityStruct = new ActivityStruct(activityDataHolderSize, maxDataPacketLength);
+        } else {
+            Log.w("FETCH", "null");
+            hasExtendedActivityData = false;
+            hasPacketCounter = false;
+            //temporary buffer, size is a multiple of 60 because we want to store complete minutes (1 minute = 3 or 4 bytes)
+            int activityDataHolderSize = getBytesPerMinuteOfActivityData() * 60 * 4;
+            int maxDataPacketLength = hasPacketCounter ? (hasExtendedActivityData ? 16 : 18) : 20;
+            activityStruct = new ActivityStruct(activityDataHolderSize, maxDataPacketLength);
+        }
     }
 
     @Override

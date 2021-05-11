@@ -68,6 +68,7 @@ public class MQTTconnection {
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
         //BluetoothManager manager = (BluetoothManager) context.getSystemService(BLUETOOTH_SERVICE);
         //connectedDevice = manager.getConnectedDevices(GATT);
+        exportDB(context);
         myDBHandler db = new myDBHandler(context, null,null,1);
         connectedDevice = db.getDeviceId();
 
@@ -112,19 +113,19 @@ public class MQTTconnection {
                     System.out.println("MQTT: Successfully connected to server: " + serverUri);
                     if (action.equals("steps")) {
                         publishSteps(context);
-                        Toast.makeText(context, "Opublikowano kroki", Toast.LENGTH_LONG).show();
+                        //Toast.makeText(context, "Opublikowano kroki", Toast.LENGTH_LONG).show();
                     }
                     else if (action.equals("mailSms")) {
                         publishMailSms();
-                        Toast.makeText(context, "Opublikowano notyfikacje", Toast.LENGTH_LONG).show();
+                        //Toast.makeText(context, "Opublikowano notyfikacje", Toast.LENGTH_LONG).show();
                     }
                     else if (action.matches("\\d+")) {
                         publishMood(action);
-                        Toast.makeText(context, "Opublikowano samopoczucie", Toast.LENGTH_LONG).show();
+                        //Toast.makeText(context, "Opublikowano samopoczucie", Toast.LENGTH_LONG).show();
                     }
                     else if (action.equals("sendDevices")) {
                         publishNeighborDevices(neighborDevices);
-                        Toast.makeText(context, "Opublikowano urządzenia w pobliżu", Toast.LENGTH_LONG).show();
+                        //Toast.makeText(context, "Opublikowano urządzenia w pobliżu", Toast.LENGTH_LONG).show();
                     }
                     else if (action.equals("getConfiguration")) {
                         try {
