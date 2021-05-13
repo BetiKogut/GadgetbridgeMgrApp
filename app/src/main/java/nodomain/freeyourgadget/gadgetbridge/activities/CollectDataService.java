@@ -52,6 +52,7 @@ public class CollectDataService extends Service {
     private static MQTTconnection mqttConnection;
     private int scanTime = 30; //seconds
     private int interval = 15;  //minutes
+    private Context ctx;
 
     @Override
         public IBinder onBind(Intent intent) {
@@ -65,6 +66,7 @@ public class CollectDataService extends Service {
             Log.w("TIMER", "Service Created m");
            // Toast.makeText(getApplicationContext(), "Service Created m", Toast.LENGTH_LONG).show();
             super.onCreate();
+            ctx = GBApplication.getAppContext();
         }
 
         @Override
@@ -77,6 +79,7 @@ public class CollectDataService extends Service {
         @RequiresApi(api = Build.VERSION_CODES.M)
         @Override
         public int onStartCommand(Intent intent, int flags, int startId) {
+        //super.onStartCommand(intent, flags, startId);
             //GBDevice device = ((ObjectWrapperForBinder)intent.getExtras().getBinder("KEY")).getData();
 
             //if (device != null){
@@ -86,6 +89,9 @@ public class CollectDataService extends Service {
             Log.w("TIMER", "Service Running m");
             //Toast.makeText(getApplicationContext(), "Service Running m", Toast.LENGTH_LONG).show();
 
+            if (ctx == null){
+                ctx = GBApplication.getAppContext();
+            }
             disconnect();
             startBluetoothScanning();
             stopBluetoothScanning();
@@ -93,8 +99,11 @@ public class CollectDataService extends Service {
             Calendar calendar = getExecutionTime();
 
             UUID uuid = UUID.randomUUID();
-            Log.w("Debug", "*****" + calendar.getTime());
-            PendingIntent pintent = PendingIntent.getService(getContext(), uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            if (intent == null) {
+                intent = new Intent(ctx, CollectDataService.class);
+            }
+            PendingIntent pintent = PendingIntent.getService(ctx, uuid.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT);
             AlarmManager alarm = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
             alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pintent);
 
@@ -103,7 +112,7 @@ public class CollectDataService extends Service {
 
             getConfiguration();
 
-            return START_STICKY;
+            return START_REDELIVER_INTENT;//START_STICKY;
         }
     public Calendar getExecutionTime(){
         Calendar calendar = Calendar.getInstance();

@@ -141,11 +141,14 @@ public class GBApplication extends Application {
     protected DeviceService createDeviceService() {
         return new GBDeviceService(this);
     }
-
+    public static Context getAppContext(){
+        return GBApplication.context;
+    }
     @Override
     public void onCreate() {
         app = this;
         super.onCreate();
+        GBApplication.context = (GBApplication) getContext();
 
         if (lockHandler != null) {
             // guard against multiple invocations (robolectric)
